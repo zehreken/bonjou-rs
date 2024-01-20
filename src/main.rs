@@ -1,8 +1,8 @@
-use chrono::{self, DateTime, Datelike, Local, Timelike, Utc};
+mod view;
+use chrono::{self, Datelike, Local, Timelike};
 use std::{
     fs::{create_dir, File},
     io::Write,
-    os::unix::process::CommandExt,
     path::Path,
     process::Command,
 };
@@ -40,6 +40,8 @@ fn main() {
     } else {
         println!("Today's journal already exists")
     }
+
+    view::start().expect("Error starting TUI");
 
     let mut output = Command::new("vim");
     output.arg(&file_path).status().expect("Error starting Vim");
