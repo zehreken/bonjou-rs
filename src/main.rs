@@ -1,48 +1,135 @@
-mod view;
-use chrono::{self, Datelike, Local, Timelike};
-use std::{
-    fs::{create_dir, File},
-    io::Write,
-    path::Path,
-    process::Command,
+use app_state::AppState;
+use crossterm::{
+    event::{self, KeyCode, KeyEventKind},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
 };
+use ratatui::{
+    layout::{Constraint, Direction, Layout},
+    prelude::{CrosstermBackend, Terminal},
+    style::{Color, Style},
+    widgets::{Block, BorderType, Borders, Paragraph},
+    Frame,
+};
+use std::io::BufRead;
+use std::{
+    env,
+    io::{self, stdout, Result},
+};
+use tui_textarea::TextArea;
+mod app_state;
+mod editor;
+use editor::{Mode, Transition, Vim};
 
-fn main() {
-    let now = Local::now();
-    let (is_pm, hour) = now.hour12();
-    println!(
-        "The current UTC time is {:02}:{:02}:{:02} {}",
-        hour,
-        now.minute(),
-        now.second(),
-        if is_pm { "PM" } else { "AM" }
-    );
-    println!("Work on journaling app is in progress");
+fn main() -> Result<()> {
+    stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+    terminal.clear()?;
 
-    let year_folder_name = format!("{:04}", now.year());
-    let year_folder_path = Path::new(&year_folder_name);
-    if !Path::exists(&year_folder_path) {
-        create_dir(&year_folder_path).expect("Error while creating year folder");
-    }
-    let month_folder_name = format!("{:02}", now.month());
-    let month_folder_path = year_folder_path.join(&month_folder_name);
-    if !Path::exists(&month_folder_path) {
-        create_dir(&month_folder_path).expect("Error while creating month folder");
-    }
-    let date = format!("{:04}-{:02}-{:02}", now.year(), now.month(), now.day());
-    let file_name = format!("{}.toml", date);
-    let file_path = month_folder_path.join(&file_name);
-    if !Path::exists(&file_path) {
-        let mut file = File::create(&file_path).expect("Error while creating file");
-        let init = format!("date = \"{}\"\nmarkdown = \"\"\"\n\"\"\"", date);
-        file.write_all(init.as_bytes())
-            .expect("Error while writing to file");
+    // vim stuff
+    let mut textarea = if let Some(path) = env::args().nth(1) {
+        let file = std::fs::File::open(path)?;
+        io::BufReader::new(file)
+            .lines()
+            .collect::<io::Result<_>>()?
     } else {
-        println!("Today's journal already exists")
+        TextArea::default()
+    };
+
+    textarea.set_block(Mode::Normal.block());
+    textarea.set_cursor_style(Mode::Normal.cursor_style());
+    let mut vim = Vim::new(Mode::Normal);
+    // ========
+
+    let app_state = app_state::check();
+
+    loop {
+        // TODO draw the UI
+        // terminal.draw(|frame| {
+        // let area = frame.size();
+        // frame.render_widget(
+        //     Paragraph::new(format!("{}\n(press SPACE to continue)", info))
+        //         .white()
+        //         .on_blue(),
+        //     area,
+        // );
+        // ui(frame, &app_state);
+        // })?;
+        terminal.draw(|f| f.render_widget(textarea.widget(), f.size()))?;
+
+        vim = match vim.transition(crossterm::event::read()?.into(), &mut textarea) {
+            Transition::Mode(mode) if vim.mode != mode => {
+                textarea.set_block(mode.block());
+                textarea.set_cursor_style(mode.cursor_style());
+                Vim::new(mode)
+            }
+            Transition::Nop | Transition::Mode(_) => vim,
+            Transition::Pending(input) => vim.with_pending(input),
+            Transition::Quit => break,
+        };
+        // TODO handle events
+        if event::poll(std::time::Duration::from_millis(16))? {
+            if let event::Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char(' ') {
+                    break;
+                }
+            }
+        }
     }
 
-    view::start().expect("Error starting TUI");
+    stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+    Ok(())
+}
 
-    let mut output = Command::new("vim");
-    output.arg(&file_path).status().expect("Error starting Vim");
+fn ui(frame: &mut Frame, app_state: &AppState) {
+    let main_layout = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ],
+    )
+    .split(frame.size());
+    frame.render_widget(
+        Block::new()
+            .borders(Borders::TOP)
+            .title("Bonjou-rs")
+            .border_style(Style::default().fg(Color::Black))
+            .border_type(BorderType::Rounded)
+            .style(Style::default().bg(Color::Yellow)),
+        main_layout[0],
+    );
+    frame.render_widget(
+        Block::new()
+            .borders(Borders::TOP)
+            .title(&app_state.date[..])
+            .border_style(Style::default().fg(Color::Black))
+            .border_type(BorderType::Rounded)
+            .style(Style::default().bg(Color::Yellow)),
+        main_layout[2],
+    );
+
+    let inner_layout = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Percentage(30), Constraint::Percentage(70)],
+    )
+    .split(main_layout[1]);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Entries")
+        .border_style(Style::default().fg(Color::White))
+        .border_type(BorderType::Rounded)
+        .style(Style::default().bg(Color::LightBlue));
+
+    let para = Paragraph::new(String::from(app_state.path.to_str().unwrap()));
+    frame.render_widget(para.block(block), inner_layout[0]);
+    let para2 = Paragraph::new("Press SPACE to continue");
+    // frame.render_widget(para2.block(block), inner_layout[0]);
+    frame.render_widget(
+        Block::default().borders(Borders::ALL).title("Journal"),
+        inner_layout[1],
+    );
 }
