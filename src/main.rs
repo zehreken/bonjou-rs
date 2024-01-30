@@ -7,7 +7,7 @@ use crossterm::{
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::{CrosstermBackend, Terminal},
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     widgets::{Block, BorderType, Borders, Paragraph},
     Frame,
 };
@@ -28,7 +28,7 @@ fn main() -> Result<()> {
     terminal.clear()?;
 
     // vim stuff
-    let mut textarea = if let Some(path) = env::args().nth(1) {
+    let mut text_area = if let Some(path) = env::args().nth(1) {
         let file = std::fs::File::open(path)?;
         io::BufReader::new(file)
             .lines()
@@ -37,8 +37,8 @@ fn main() -> Result<()> {
         TextArea::default()
     };
 
-    textarea.set_block(Mode::Normal.block());
-    textarea.set_cursor_style(Mode::Normal.cursor_style());
+    text_area.set_block(Mode::Normal.block());
+    text_area.set_cursor_style(Mode::Normal.cursor_style());
     let mut vim = Vim::new(Mode::Normal);
     // ========
 
@@ -46,22 +46,22 @@ fn main() -> Result<()> {
 
     loop {
         // TODO draw the UI
-        // terminal.draw(|frame| {
-        // let area = frame.size();
-        // frame.render_widget(
-        //     Paragraph::new(format!("{}\n(press SPACE to continue)", info))
-        //         .white()
-        //         .on_blue(),
-        //     area,
-        // );
-        // ui(frame, &app_state);
-        // })?;
-        terminal.draw(|f| f.render_widget(textarea.widget(), f.size()))?;
+        terminal.draw(|frame| {
+            let area = frame.size();
+            frame.render_widget(
+                Paragraph::new(format!("{}\n(press SPACE to continue)", "info"))
+                    .white()
+                    .on_dark_gray(),
+                area,
+            );
+            ui(frame, &app_state, &text_area);
+            // frame.render_widget(text_area.widget(), frame.size());
+        })?;
 
-        vim = match vim.transition(crossterm::event::read()?.into(), &mut textarea) {
+        vim = match vim.transition(crossterm::event::read()?.into(), &mut text_area) {
             Transition::Mode(mode) if vim.mode != mode => {
-                textarea.set_block(mode.block());
-                textarea.set_cursor_style(mode.cursor_style());
+                text_area.set_block(mode.block());
+                text_area.set_cursor_style(mode.cursor_style());
                 Vim::new(mode)
             }
             Transition::Nop | Transition::Mode(_) => vim,
@@ -83,7 +83,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn ui(frame: &mut Frame, app_state: &AppState) {
+fn ui(frame: &mut Frame, app_state: &AppState, text_area: &TextArea) {
     let main_layout = Layout::new(
         Direction::Vertical,
         [
@@ -126,10 +126,5 @@ fn ui(frame: &mut Frame, app_state: &AppState) {
 
     let para = Paragraph::new(String::from(app_state.path.to_str().unwrap()));
     frame.render_widget(para.block(block), inner_layout[0]);
-    let para2 = Paragraph::new("Press SPACE to continue");
-    // frame.render_widget(para2.block(block), inner_layout[0]);
-    frame.render_widget(
-        Block::default().borders(Borders::ALL).title("Journal"),
-        inner_layout[1],
-    );
+    frame.render_widget(text_area.widget(), inner_layout[1]);
 }
