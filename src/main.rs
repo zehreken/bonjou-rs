@@ -12,15 +12,12 @@ use ratatui::{
     widgets::{BorderType, Borders, Paragraph},
     Frame,
 };
-use std::{
-    env,
-    io::{self, stdout, Result},
-};
-use std::{io::BufRead, process::Command};
-use tui_textarea::TextArea;
+use std::io::{stdout, Result};
+use std::process::Command;
+// use tui_textarea::TextArea;
 mod app_state;
-mod editor;
-use editor::{Mode, Transition, Vim};
+// mod editor;
+// use editor::{Mode, Transition, Vim};
 
 fn main() -> Result<()> {
     stdout().execute(EnterAlternateScreen)?;
@@ -29,21 +26,21 @@ fn main() -> Result<()> {
     terminal.clear()?;
 
     // vim stuff
-    let mut text_area = if let Some(path) = env::args().nth(1) {
-        let file = std::fs::File::open(path)?;
-        io::BufReader::new(file)
-            .lines()
-            .collect::<io::Result<_>>()?
-    } else {
-        TextArea::default()
-    };
+    // let mut text_area = if let Some(path) = env::args().nth(1) {
+    //     let file = std::fs::File::open(path)?;
+    //     io::BufReader::new(file)
+    //         .lines()
+    //         .collect::<io::Result<_>>()?
+    // } else {
+    //     TextArea::default()
+    // };
 
-    text_area.set_block(Mode::Normal.block());
-    text_area.set_cursor_style(Mode::Normal.cursor_style());
+    // text_area.set_block(Mode::Normal.block());
+    // text_area.set_cursor_style(Mode::Normal.cursor_style());
     // let mut vim = Vim::new(Mode::Normal);
     // ========
 
-    let app_state = app_state::check();
+    let mut app_state = app_state::AppState::new();
 
     loop {
         // TODO draw the UI
@@ -55,7 +52,7 @@ fn main() -> Result<()> {
                     .on_dark_gray(),
                 area,
             );
-            ui(frame, &app_state, &text_area);
+            ui(frame, &app_state);
             // frame.render_widget(text_area.widget(), frame.size());
         })?;
 
@@ -71,9 +68,11 @@ fn main() -> Result<()> {
         // };
         // TODO handle events
         if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
+            let event = crossterm::event::read()?;
+            app_state.input(&event);
+            if let event::Event::Key(key) = event {
                 if key.kind == KeyEventKind::Press {
-                    if key.code == KeyCode::Char(' ') {
+                    if key.code == KeyCode::Char('q') {
                         break;
                     }
                     if key.code == KeyCode::Char('w') {
@@ -89,12 +88,6 @@ fn main() -> Result<()> {
                         //     .status()
                         //     .expect("Error starting Vim");
                     }
-                    if key.code == KeyCode::Up {
-                        println!("up")
-                    }
-                    if key.code == KeyCode::Down {
-                        println!("down")
-                    }
                 }
             }
         }
@@ -105,7 +98,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn ui(frame: &mut Frame, app_state: &AppState, text_area: &TextArea) {
+fn ui(frame: &mut Frame, app_state: &AppState) {
     let main_layout = Layout::new(
         Direction::Vertical,
         [
@@ -150,7 +143,8 @@ fn ui(frame: &mut Frame, app_state: &AppState, text_area: &TextArea) {
         .border_type(BorderType::Rounded)
         .style(Style::default().bg(Color::LightBlue));
 
-    let para = Paragraph::new(String::from(app_state.path.to_str().unwrap()));
-    frame.render_widget(para.block(block), inner_layout[0]);
-    frame.render_widget(text_area.widget(), inner_layout[1]);
+    let paragraph = app_state.render();
+    frame.render_widget(paragraph.block(block), inner_layout[0]);
+    frame.render_widget(app_state.test(), inner_layout[1]);
+    frame.render_widget(app_state.test(), inner_layout[2]);
 }
