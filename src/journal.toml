@@ -1,6 +1,6 @@
 date = "2024-01-18"
 nfp = "1" # 0 or 1
-workout = ""
+workout = "" # list of exercises for later analysis
 markdown = """
 Hello! It was a good day.
 """

@@ -9,6 +9,9 @@ use std::{
 pub struct AppState {
     pub path: PathBuf,
     pub date: String,
+    pub year: u8,
+    pub month: u8,
+    pub day: u8,
 }
 
 pub fn check() -> AppState {
@@ -44,6 +47,9 @@ pub fn check() -> AppState {
     AppState {
         path: file_path,
         date,
+        year: now.year() as u8,
+        month: now.month() as u8,
+        day: now.day() as u8,
     }
 }
 

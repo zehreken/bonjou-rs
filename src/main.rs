@@ -8,14 +8,15 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::{CrosstermBackend, Terminal},
     style::{Color, Style, Stylize},
-    widgets::{Block, BorderType, Borders, Paragraph},
+    widgets::block::Block,
+    widgets::{BorderType, Borders, Paragraph},
     Frame,
 };
-use std::io::BufRead;
 use std::{
     env,
     io::{self, stdout, Result},
 };
+use std::{io::BufRead, process::Command};
 use tui_textarea::TextArea;
 mod app_state;
 mod editor;
@@ -39,7 +40,7 @@ fn main() -> Result<()> {
 
     text_area.set_block(Mode::Normal.block());
     text_area.set_cursor_style(Mode::Normal.cursor_style());
-    let mut vim = Vim::new(Mode::Normal);
+    // let mut vim = Vim::new(Mode::Normal);
     // ========
 
     let app_state = app_state::check();
@@ -58,21 +59,42 @@ fn main() -> Result<()> {
             // frame.render_widget(text_area.widget(), frame.size());
         })?;
 
-        vim = match vim.transition(crossterm::event::read()?.into(), &mut text_area) {
-            Transition::Mode(mode) if vim.mode != mode => {
-                text_area.set_block(mode.block());
-                text_area.set_cursor_style(mode.cursor_style());
-                Vim::new(mode)
-            }
-            Transition::Nop | Transition::Mode(_) => vim,
-            Transition::Pending(input) => vim.with_pending(input),
-            Transition::Quit => break,
-        };
+        // vim = match vim.transition(crossterm::event::read()?.into(), &mut text_area) {
+        //     Transition::Mode(mode) if vim.mode != mode => {
+        //         text_area.set_block(mode.block());
+        //         text_area.set_cursor_style(mode.cursor_style());
+        //         Vim::new(mode)
+        //     }
+        //     Transition::Nop | Transition::Mode(_) => vim,
+        //     Transition::Pending(input) => vim.with_pending(input),
+        //     Transition::Quit => break,
+        // };
         // TODO handle events
         if event::poll(std::time::Duration::from_millis(16))? {
             if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char(' ') {
-                    break;
+                if key.kind == KeyEventKind::Press {
+                    if key.code == KeyCode::Char(' ') {
+                        break;
+                    }
+                    if key.code == KeyCode::Char('w') {
+                        let test_arg = format!(
+                            "tell app \"Terminal\" to do script \"vim ~/Development/log/{0}\"\nreturn",
+                            app_state.path.to_str().unwrap()
+                        );
+                        let mut output = Command::new("osascript");
+                        output.arg("-e").arg(test_arg).status().expect("Error");
+                        // let mut output = Command::new("vim");
+                        // output
+                        //     .arg(&app_state.path)
+                        //     .status()
+                        //     .expect("Error starting Vim");
+                    }
+                    if key.code == KeyCode::Up {
+                        println!("up")
+                    }
+                    if key.code == KeyCode::Down {
+                        println!("down")
+                    }
                 }
             }
         }
@@ -114,7 +136,11 @@ fn ui(frame: &mut Frame, app_state: &AppState, text_area: &TextArea) {
 
     let inner_layout = Layout::new(
         Direction::Horizontal,
-        [Constraint::Percentage(30), Constraint::Percentage(70)],
+        [
+            Constraint::Percentage(30),
+            Constraint::Percentage(30),
+            Constraint::Percentage(30),
+        ],
     )
     .split(main_layout[1]);
     let block = Block::default()
