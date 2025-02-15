@@ -1,9 +1,9 @@
-use chrono::{self, Datelike, Local, Timelike};
+use chrono::{self, Datelike, Local};
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::Paragraph,
+    widgets::{List, ListDirection, Paragraph},
 };
 use std::{
     fs::{create_dir, File},
@@ -63,14 +63,26 @@ impl AppState {
 
     pub fn input(&mut self, event: &Event) {
         if let Event::Key(key) = event {
-            if key.code == KeyCode::Up {
+            if key.code == KeyCode::Char('k') {
                 println!("up")
             }
-            if key.code == KeyCode::Down {
+            if key.code == KeyCode::Char('j') {
                 println!("down")
             }
             if key.code == KeyCode::Enter {}
         }
+    }
+
+    pub fn list(&self) -> List {
+        let items = ["Item 1", "Item 2", "Item 3"];
+        let list = List::new(items)
+            .style(Style::default().fg(Color::White))
+            .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
+            .highlight_symbol(">>")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::BottomToTop);
+
+        list
     }
 
     pub fn test(&self) -> Paragraph {

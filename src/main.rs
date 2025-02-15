@@ -45,7 +45,7 @@ fn main() -> Result<()> {
     loop {
         // TODO draw the UI
         terminal.draw(|frame| {
-            let area = frame.size();
+            let area = frame.area();
             frame.render_widget(
                 Paragraph::new(format!("{}\n(press SPACE to continue)", "info"))
                     .white()
@@ -107,11 +107,12 @@ fn ui(frame: &mut Frame, app_state: &AppState) {
             Constraint::Length(1),
         ],
     )
-    .split(frame.size());
+    .split(frame.area());
     frame.render_widget(
         Block::new()
             .borders(Borders::TOP)
             .title("Bonjou-rs")
+            .title_bottom("Write <W>")
             .border_style(Style::default().fg(Color::Black))
             .border_type(BorderType::Rounded)
             .style(Style::default().bg(Color::Yellow)),
@@ -146,5 +147,5 @@ fn ui(frame: &mut Frame, app_state: &AppState) {
     let paragraph = app_state.render();
     frame.render_widget(paragraph.block(block), inner_layout[0]);
     frame.render_widget(app_state.test(), inner_layout[1]);
-    frame.render_widget(app_state.test(), inner_layout[2]);
+    frame.render_widget(app_state.list(), inner_layout[2]);
 }
