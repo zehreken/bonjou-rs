@@ -86,9 +86,9 @@ impl AppState {
     }
 
     pub fn test(&self) -> Paragraph {
-        let span1 = Span::raw("Hello ");
+        let span1 = Span::raw("Version: ");
         let span2 = Span::styled(
-            "World",
+            "0.1",
             Style::new()
                 .fg(Color::Green)
                 .bg(Color::White)
